@@ -32,6 +32,7 @@ public class MongoManager {
                     break;
                 case "findOne":
                     getProduct(message, input.getString("id"));
+                    break;
                 default:
                     message.reply(new JsonObject().put("error", "Unrecognized command"));
             }

@@ -66,11 +66,7 @@ public class ProductRouteHandler implements RouteHandler {
                                     LOGGER.info("getAllProducts returning " + resultList.size() + " results");
                                     List<Product> products = resultList.stream()
                                             .map(obj -> new JsonObject(obj.toString()))
-                                            .map(obj -> Product.builder()
-                                                    .id(obj.getString("_id"))
-                                                    .number(obj.getString("number"))
-                                                    .description(obj.getString("description"))
-                                                    .build())
+                                            .map(obj -> obj.mapTo(Product.class))
                                             .collect(Collectors.toList());
                                     routingContext.response().setStatusCode(200)
                                             .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
@@ -85,27 +81,35 @@ public class ProductRouteHandler implements RouteHandler {
     }
 
     private void getProductById(RoutingContext routingContext) {
-        String id = routingContext.request().getParam("id");
-        JsonObject message = new JsonObject().put("cmd", "findOne").put("id", id);
-        vertx.eventBus().request(MONGO_SERVICE, message, reply -> {
-            if (reply.succeeded()) {
-                JsonObject msgJson = new JsonObject(reply.result().toString());
-                Product product = Product.builder()
-                        .id(msgJson.getString("_id"))
-                        .number(msgJson.getString("number"))
-                        .description(msgJson.getString("description"))
-                        .build();
-                LOGGER.info("getProductById returning results");
-                routingContext.response().setStatusCode(200)
-                        .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
-                        .end(Json.encodePrettily(JsonObject.mapFrom(product)));
-
-            } else {
-                routingContext.response().setStatusCode(401)
-                        .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
-                        .end();
-            }
-        });
+        try {
+            String id = routingContext.request().getParam("id");
+            JsonObject message = new JsonObject().put("cmd", "findOne").put("id", id);
+            vertx.eventBus().request(MONGO_SERVICE, message, reply -> {
+                if (reply.succeeded()) {
+                    JsonObject msgJson = new JsonObject(reply.result().body().toString());
+                    Optional.ofNullable(msgJson.getString("error"))
+                            .ifPresentOrElse(error ->
+                                            routingContext.response().setStatusCode(500)
+                                                    .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                                                    .end(Json.encodePrettily(new JsonObject().put("error", error))),
+                                    () -> {
+                                        Product product = msgJson.mapTo(Product.class);
+                                        LOGGER.info("getProductById returning results");
+                                        routingContext.response().setStatusCode(200)
+                                                .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                                                .end(Json.encodePrettily(JsonObject.mapFrom(product)));
+                                    });
+                } else {
+                    routingContext.response().setStatusCode(401)
+                            .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                            .end();
+                }
+            });
+        } catch (Exception exc) {
+            routingContext.response().setStatusCode(400)
+                    .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                    .end(Json.encodePrettily(new JsonObject().put("error", exc.getMessage())));
+        }
     }
 
     private void postProduct(RoutingContext routingContext) {
