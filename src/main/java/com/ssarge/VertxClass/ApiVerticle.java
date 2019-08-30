@@ -153,7 +153,7 @@ public class ApiVerticle extends AbstractVerticle {
     }
 
     @Override
-    public void stop() throws Exception {
+    public void stop(){
         LOGGER.info("stopping AppVerticle");
     }
 
@@ -177,16 +177,6 @@ public class ApiVerticle extends AbstractVerticle {
                 .orElseThrow(() -> new IllegalStateException("http.port not set in config file properly"));
         passPhrase = (String) Optional.ofNullable(config().getValue("server.passphrase"))
                 .orElseThrow(() -> new IllegalStateException("server.passphrase not set properly in config"));
-    }
-
-    private void sendMessage(Vertx vertx, String address, JsonObject message) {
-        System.out.println("Sending message: " + Json.encodePrettily(message));
-        vertx.eventBus().send(address, message, reply -> {
-            if (reply.succeeded()) {
-                JsonObject results = (JsonObject) reply.result().body();
-                System.out.println("Got reply message: " + results.toString());
-            }
-        });
     }
 
     @SuppressWarnings("SameParameterValue")

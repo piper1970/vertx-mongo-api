@@ -8,7 +8,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
@@ -17,6 +16,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.ssarge.VertxClass.resources.MongoManager.*;
+
 public class ProductRouteHandler implements RouteHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ProductRouteHandler.class);
@@ -24,16 +25,9 @@ public class ProductRouteHandler implements RouteHandler {
     private static final String MONGO_SERVICE = "com.ssarge.mongoservice";
 
     private final Vertx vertx;
-    private final MongoClient mongoClient;
 
     public ProductRouteHandler(Vertx vertx) {
         this.vertx = vertx;
-
-        JsonObject dbConfig = new JsonObject()
-                .put("connection_string", "mongodb://localhost:27017/MongoTest")
-                .put("useObjectId", true);
-
-        mongoClient = MongoClient.createShared(vertx, dbConfig);
     }
 
     @Override
@@ -52,7 +46,7 @@ public class ProductRouteHandler implements RouteHandler {
 
     private void getAllProducts(RoutingContext routingContext) {
 
-        vertx.eventBus().request(MONGO_SERVICE, new JsonObject().put("cmd", "findAll"), reply -> {
+        vertx.eventBus().request(MONGO_SERVICE, new JsonObject().put("cmd", GET_ALL_PRODUCTS), reply -> {
             if (reply.succeeded()) {
                 JsonObject resultJson = new JsonObject(reply.result().body().toString());
 
@@ -83,7 +77,7 @@ public class ProductRouteHandler implements RouteHandler {
     private void getProductById(RoutingContext routingContext) {
         try {
             String id = routingContext.request().getParam("id");
-            JsonObject message = new JsonObject().put("cmd", "findOne").put("id", id);
+            JsonObject message = new JsonObject().put("cmd", GET_PRODUCT).put("id", id);
             vertx.eventBus().request(MONGO_SERVICE, message, reply -> {
                 if (reply.succeeded()) {
                     JsonObject msgJson = new JsonObject(reply.result().body().toString());
@@ -113,21 +107,58 @@ public class ProductRouteHandler implements RouteHandler {
     }
 
     private void postProduct(RoutingContext routingContext) {
-        routingContext.response().setStatusCode(500)
-                .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
-                .end(Json.encodePrettily(new JsonObject().put("error", "Not yet implemented")));
+        JsonObject value = routingContext.getBodyAsJson();
+        JsonObject message = new JsonObject().put("cmd", CREATE_PRODUCT).put("value", value);
+        vertx.eventBus().request(MONGO_SERVICE, message, reply -> {
+            if (reply.succeeded()) {
+                JsonObject productJson = new JsonObject(reply.result().body().toString());
+                Product product = productJson.mapTo(Product.class);
+                routingContext.response().setStatusCode(201)
+                        .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                        .end(Json.encodePrettily(JsonObject.mapFrom(product)));
+            } else {
+                routingContext.response().setStatusCode(500)
+                        .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                        .end(Json.encodePrettily(new JsonObject().put("error", reply.cause().getMessage())));
+            }
+        });
     }
 
     private void updateProductById(RoutingContext routingContext) {
-        routingContext.response().setStatusCode(500)
-                .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
-                .end(Json.encodePrettily(new JsonObject().put("error", "Not yet implemented")));
+        String id = routingContext.request().getParam("id");
+        JsonObject value = routingContext.getBodyAsJson();
+        JsonObject message = new JsonObject().put("cmd", UPDATE_PRODUCT).put("id", id).put("value", value);
+        vertx.eventBus().request(MONGO_SERVICE, message, reply -> {
+            if (reply.succeeded()) {
+                JsonObject productJson = new JsonObject(reply.result().body().toString());
+                Product product = productJson.mapTo(Product.class);
+                routingContext.response().setStatusCode(200)
+                        .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                        .end(Json.encodePrettily(JsonObject.mapFrom(product)));
+            } else {
+                routingContext.response().setStatusCode(500)
+                        .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                        .end(Json.encodePrettily(new JsonObject().put("error", reply.cause().getMessage())));
+            }
+        });
     }
 
     private void deleteProductById(RoutingContext routingContext) {
-        routingContext.response().setStatusCode(500)
-                .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
-                .end(Json.encodePrettily(new JsonObject().put("error", "Not yet implemented")));
+        String id = routingContext.request().getParam("id");
+        JsonObject message = new JsonObject().put("cmd", DELETE_PRODUCT).put("id", id);
+        vertx.eventBus().request(MONGO_SERVICE, message, reply -> {
+            if (reply.succeeded()) {
+                JsonObject productJson = new JsonObject(reply.result().body().toString());
+                Product product = productJson.mapTo(Product.class);
+                routingContext.response().setStatusCode(200)
+                        .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                        .end(Json.encodePrettily(JsonObject.mapFrom(product)));
+            } else {
+                routingContext.response().setStatusCode(500)
+                        .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                        .end(Json.encodePrettily(new JsonObject().put("error", reply.cause().getMessage())));
+            }
+        });
     }
 
 }

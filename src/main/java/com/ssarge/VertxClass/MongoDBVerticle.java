@@ -17,8 +17,6 @@ public class MongoDBVerticle extends AbstractVerticle {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoDBVerticle.class);
 
-    private static MongoClient mongoClient = null;
-
     public static void main(String[] args) {
         VertxOptions vertxOptions = new VertxOptions();
         vertxOptions.getEventBusOptions().setClustered(true);
@@ -61,14 +59,14 @@ public class MongoDBVerticle extends AbstractVerticle {
         Optional.ofNullable(config.getString("mongodb.authSource", null))
                 .ifPresent(auth -> options.put("authSource", auth));
 
-        mongoClient = MongoClient.createShared(vertx, options);
+        MongoClient mongoClient = MongoClient.createShared(vertx, options);
 
         MongoManager mongoManager = new MongoManager(mongoClient);
         mongoManager.registerConsumer(vertx);
     }
 
     @Override
-    public void stop() throws Exception {
+    public void stop(){
         LOGGER.info("MongoDB Verticle Stopping");
 
         // close connection
