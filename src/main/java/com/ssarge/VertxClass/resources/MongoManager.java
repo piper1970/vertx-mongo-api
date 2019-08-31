@@ -3,7 +3,6 @@ package com.ssarge.VertxClass.resources;
 import com.ssarge.VertxClass.entity.Product;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.Message;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
@@ -126,38 +125,38 @@ public class MongoManager {
         JsonObject update = input.getJsonObject("value");
         update.put("_id", id);
         mongoClient.replaceDocuments("products", query, update, response -> {
-           if(response.succeeded()){
-               try{
-                   LOGGER.info("Product with id " + id + " has been updated");
-                   Product product = Product.builder()
-                           .id(id)
-                           .description(update.getString("description"))
-                           .number(update.getString("number"))
-                           .build();
-                   message.reply(JsonObject.mapFrom(product).toString());
-               }catch(Exception exc){
-                   LOGGER.error("Therew were problems getting data from json input");
-                   message.reply(new JsonObject()
-                           .put("error", "Problems occurred while updating the record on the backend")
-                           .toString());
-               }
-           }else{
-               LOGGER.error("Therew were problems updating record "+ id + " in the database");
-               message.reply(new JsonObject()
-                       .put("error", "There were problems updating the record on the backend")
-                       .put("cause", response.cause().getMessage())
-                       .toString());
-           }
+            if (response.succeeded()) {
+                try {
+                    LOGGER.info("Product with id " + id + " has been updated");
+                    Product product = Product.builder()
+                            .id(id)
+                            .description(update.getString("description"))
+                            .number(update.getString("number"))
+                            .build();
+                    message.reply(JsonObject.mapFrom(product).toString());
+                } catch (Exception exc) {
+                    LOGGER.error("Therew were problems getting data from json input");
+                    message.reply(new JsonObject()
+                            .put("error", "Problems occurred while updating the record on the backend")
+                            .toString());
+                }
+            } else {
+                LOGGER.error("Therew were problems updating record " + id + " in the database");
+                message.reply(new JsonObject()
+                        .put("error", "There were problems updating the record on the backend")
+                        .put("cause", response.cause().getMessage())
+                        .toString());
+            }
         });
     }
 
     private void deleteProduct(String id, Message<Object> message) {
         JsonObject query = new JsonObject().put("_id", id);
         mongoClient.removeDocument("products", query, response -> {
-            if(response.succeeded()){
-                LOGGER.info("Product with id "+ id + " has been removed", id);
+            if (response.succeeded()) {
+                LOGGER.info("Product with id " + id + " has been removed", id);
                 message.reply(new JsonObject().put("status", "removed").put("id", id).toString());
-            }else{
+            } else {
                 message.reply(new JsonObject()
                         .put("error", "There were problems removing the record from the backend")
                         .put("cause", response.cause().getMessage())

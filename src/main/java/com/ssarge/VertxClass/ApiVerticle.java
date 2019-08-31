@@ -5,6 +5,7 @@ import com.ssarge.VertxClass.routes.RouteHandler;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.core.*;
 import io.vertx.core.http.HttpHeaders;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
@@ -118,9 +119,7 @@ public class ApiVerticle extends AbstractVerticle {
             } catch (IOException exc) {
                 LOGGER.error(exc.getMessage(), exc);
             } finally {
-                if (scanner != null) {
-                    scanner.close();
-                }
+                Optional.ofNullable(scanner).ifPresent(Scanner::close);
             }
 
             context.response().putHeader("content-type", "text/html").end(mappedHTML);
@@ -129,7 +128,10 @@ public class ApiVerticle extends AbstractVerticle {
 
         router.route().handler(StaticHandler.create().setCachingEnabled(false));
 
-        vertx.createHttpServer().requestHandler(router).listen(port, result -> {
+        HttpServerOptions serverOptions = new HttpServerOptions()
+                .setCompressionSupported(true)
+                .setLogActivity(true);
+        vertx.createHttpServer(serverOptions).requestHandler(router).listen(port, result -> {
             if (result.succeeded()) {
                 System.out.println("Server started on port " + port.toString());
             } else {
@@ -137,19 +139,6 @@ public class ApiVerticle extends AbstractVerticle {
                         port.toString() + ". Cause: " + result.cause().getMessage());
             }
         });
-
-//        vertx.eventBus().consumer("com.ssarge.firstconsumer", msg -> {
-//            System.out.println("Received message: " + msg.body());
-//            msg.reply(new JsonObject().put("responseCode", "OK").put("message", "Thank you"));
-//        });
-//
-//        vertx.setTimer(10000, handler -> {
-//            JsonObject msg = new JsonObject()
-//                    .put("msg", "Hello from beyond!")
-//                    .put("timestamp", Instant.now());
-//            sendMessage(vertx, "com.ssarge.firstconsumer", msg);
-//        });
-
     }
 
     @Override
@@ -167,7 +156,6 @@ public class ApiVerticle extends AbstractVerticle {
             routingContext.response().putHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                     .putHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE");
 
-            // move to next in line
             routingContext.next();
         }
     }
@@ -183,11 +171,9 @@ public class ApiVerticle extends AbstractVerticle {
     private String replaceAllTokens(String source, String token, String replacement) {
 
         String output = source;
-
         while (output.contains(token)) {
             output = output.replace(token, replacement);
         }
-
         return output;
     }
 }

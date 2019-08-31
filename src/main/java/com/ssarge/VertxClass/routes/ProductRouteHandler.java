@@ -149,10 +149,9 @@ public class ProductRouteHandler implements RouteHandler {
         vertx.eventBus().request(MONGO_SERVICE, message, reply -> {
             if (reply.succeeded()) {
                 JsonObject productJson = new JsonObject(reply.result().body().toString());
-                Product product = productJson.mapTo(Product.class);
                 routingContext.response().setStatusCode(200)
                         .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
-                        .end(Json.encodePrettily(JsonObject.mapFrom(product)));
+                        .end(Json.encodePrettily(productJson));
             } else {
                 routingContext.response().setStatusCode(500)
                         .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
