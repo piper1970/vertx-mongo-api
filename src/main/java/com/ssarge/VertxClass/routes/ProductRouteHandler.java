@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.ssarge.VertxClass.resources.MongoManager.*;
+import static com.ssarge.VertxClass.AppConstants.*;
 
 public class ProductRouteHandler implements RouteHandler {
 
@@ -75,35 +75,29 @@ public class ProductRouteHandler implements RouteHandler {
     }
 
     private void getProductById(RoutingContext routingContext) {
-        try {
-            String id = routingContext.request().getParam("id");
-            JsonObject message = new JsonObject().put("cmd", GET_PRODUCT).put("id", id);
-            vertx.eventBus().request(MONGO_SERVICE, message, reply -> {
-                if (reply.succeeded()) {
-                    JsonObject msgJson = new JsonObject(reply.result().body().toString());
-                    Optional.ofNullable(msgJson.getString("error"))
-                            .ifPresentOrElse(error ->
-                                            routingContext.response().setStatusCode(500)
-                                                    .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
-                                                    .end(Json.encodePrettily(new JsonObject().put("error", error))),
-                                    () -> {
-                                        Product product = msgJson.mapTo(Product.class);
-                                        LOGGER.info("getProductById returning results");
-                                        routingContext.response().setStatusCode(200)
+        String id = routingContext.request().getParam("id");
+        JsonObject message = new JsonObject().put("cmd", GET_PRODUCT).put("id", id);
+        vertx.eventBus().request(MONGO_SERVICE, message, reply -> {
+            if (reply.succeeded()) {
+                JsonObject msgJson = new JsonObject(reply.result().body().toString());
+                Optional.ofNullable(msgJson.getString("error"))
+                        .ifPresentOrElse(error ->
+                                        routingContext.response().setStatusCode(500)
                                                 .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
-                                                .end(Json.encodePrettily(JsonObject.mapFrom(product)));
-                                    });
-                } else {
-                    routingContext.response().setStatusCode(401)
-                            .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
-                            .end();
-                }
-            });
-        } catch (Exception exc) {
-            routingContext.response().setStatusCode(400)
-                    .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
-                    .end(Json.encodePrettily(new JsonObject().put("error", exc.getMessage())));
-        }
+                                                .end(Json.encodePrettily(new JsonObject().put("error", error))),
+                                () -> {
+                                    Product product = msgJson.mapTo(Product.class);
+                                    LOGGER.info("getProductById returning results");
+                                    routingContext.response().setStatusCode(200)
+                                            .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                                            .end(Json.encodePrettily(JsonObject.mapFrom(product)));
+                                });
+            } else {
+                routingContext.response().setStatusCode(401)
+                        .putHeader(HttpHeaders.CONTENT_TYPE, JSON_TYPE)
+                        .end();
+            }
+        });
     }
 
     private void postProduct(RoutingContext routingContext) {

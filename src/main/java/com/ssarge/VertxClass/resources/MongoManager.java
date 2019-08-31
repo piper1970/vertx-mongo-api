@@ -11,15 +11,14 @@ import io.vertx.ext.mongo.FindOptions;
 import io.vertx.ext.mongo.MongoClient;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static com.ssarge.VertxClass.AppConstants.*;
 
 public class MongoManager {
 
-    public static final String GET_ALL_PRODUCTS = "get_all_products";
-    public static final String GET_PRODUCT = "get_product";
-    public static final String UPDATE_PRODUCT = "update_product";
-    public static final String DELETE_PRODUCT = "delete_product";
-    public static final String CREATE_PRODUCT = "create_product";
+
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoManager.class);
 
@@ -57,8 +56,8 @@ public class MongoManager {
     private void getAllProducts(Message<Object> message) {
         FindOptions findOptions = new FindOptions();
         findOptions.setLimit(30);
-        mongoClient.findWithOptions("products", new JsonObject(), findOptions, results -> {
-            try {
+        try {
+            mongoClient.findWithOptions("products", new JsonObject(), findOptions, results -> {
                 if (results.succeeded()) {
                     List<JsonObject> resultList = results.result();
                     LOGGER.info("getAllProducts returning " + resultList.size() + " results");
@@ -70,18 +69,19 @@ public class MongoManager {
                             .collect(Collectors.toList());
                     message.reply(new JsonObject().put("products", new JsonArray(products)).toString());
                 } else {
-                    message.reply(new JsonObject().put("error", results.cause().getMessage()).toString());
+                    message.reply(new JsonObject().put("error", Optional.ofNullable(results.cause())
+                            .map(Throwable::getMessage).orElse("No results found")).toString());
                 }
-            } catch (Exception exc) {
-                LOGGER.error("MongoDB failed with exception " + exc.getMessage(), exc);
-                message.reply(new JsonObject().put("error", "There were problems receiving the data from the backend"));
-            }
-        });
+            });
+        } catch (Exception exc) {
+            LOGGER.error("MongoDB failed with exception " + exc.getMessage(), exc);
+            message.reply(new JsonObject().put("error", "There were problems receiving the data from the backend"));
+        }
     }
 
     private void getProduct(String id, Message<Object> message) {
-        mongoClient.findOne("products", new JsonObject().put("_id", id), null, results -> {
-            try {
+        try {
+            mongoClient.findOne("products", new JsonObject().put("_id", id), null, results -> {
                 if (results.succeeded()) {
                     JsonObject obj = results.result();
                     Product product = Product.builder()
@@ -92,13 +92,14 @@ public class MongoManager {
                     LOGGER.info("getProductById returning results");
                     message.reply(JsonObject.mapFrom(product).toString());
                 } else {
-                    message.reply(new JsonObject().put("message", "No results found").toString());
+                    message.reply(new JsonObject().put("message", Optional.ofNullable(results.cause())
+                            .map(Throwable::getMessage).orElse("No results found")).toString());
                 }
-            } catch (Exception exc) {
-                LOGGER.error("MongoDB failed with exception " + exc.getMessage(), exc);
-                message.reply(new JsonObject().put("error", "There were problems receiving the data from the backend").toString());
-            }
-        });
+            });
+        } catch (Exception exc) {
+            LOGGER.error("MongoDB failed with exception " + exc.getMessage(), exc);
+            message.reply(new JsonObject().put("error", "There were problems receiving the data from the backend").toString());
+        }
     }
 
     private void createProduct(JsonObject input, Message<Object> message) {
@@ -124,9 +125,9 @@ public class MongoManager {
         JsonObject query = new JsonObject().put("_id", id);
         JsonObject update = input.getJsonObject("value");
         update.put("_id", id);
-        mongoClient.replaceDocuments("products", query, update, response -> {
-            if (response.succeeded()) {
-                try {
+        try {
+            mongoClient.replaceDocuments("products", query, update, response -> {
+                if (response.succeeded()) {
                     LOGGER.info("Product with id " + id + " has been updated");
                     Product product = Product.builder()
                             .id(id)
@@ -134,34 +135,37 @@ public class MongoManager {
                             .number(update.getString("number"))
                             .build();
                     message.reply(JsonObject.mapFrom(product).toString());
-                } catch (Exception exc) {
-                    LOGGER.error("Therew were problems getting data from json input");
+                } else {
+                    LOGGER.error("Therew were problems updating record " + id + " in the database");
                     message.reply(new JsonObject()
-                            .put("error", "Problems occurred while updating the record on the backend")
+                            .put("error", "There were problems updating the record on the backend")
+                            .put("cause", Optional.ofNullable(response.cause()).map(Throwable::getMessage).orElse("Could not update record"))
                             .toString());
                 }
-            } else {
-                LOGGER.error("Therew were problems updating record " + id + " in the database");
-                message.reply(new JsonObject()
-                        .put("error", "There were problems updating the record on the backend")
-                        .put("cause", response.cause().getMessage())
-                        .toString());
-            }
-        });
+            });
+        } catch (Exception exc) {
+            LOGGER.error("MongoDB failed with exception " + exc.getMessage(), exc);
+            message.reply(new JsonObject().put("error", "There were problems updating data to the backend database").toString());
+        }
     }
 
     private void deleteProduct(String id, Message<Object> message) {
         JsonObject query = new JsonObject().put("_id", id);
-        mongoClient.removeDocument("products", query, response -> {
-            if (response.succeeded()) {
-                LOGGER.info("Product with id " + id + " has been removed", id);
-                message.reply(new JsonObject().put("status", "removed").put("id", id).toString());
-            } else {
-                message.reply(new JsonObject()
-                        .put("error", "There were problems removing the record from the backend")
-                        .put("cause", response.cause().getMessage())
-                        .toString());
-            }
-        });
+        try {
+            mongoClient.removeDocument("products", query, response -> {
+                if (response.succeeded()) {
+                    LOGGER.info("Product with id " + id + " has been removed", id);
+                    message.reply(new JsonObject().put("status", "removed").put("id", id).toString());
+                } else {
+                    message.reply(new JsonObject()
+                            .put("error", "There were problems removing the record from the backend")
+                            .put("cause", Optional.ofNullable(response.cause()).map(Throwable::getMessage).orElse("Could not delete record"))
+                            .toString());
+                }
+            });
+        } catch (Exception exc) {
+            LOGGER.error("MongoDB failed with exception " + exc.getMessage(), exc);
+            message.reply(new JsonObject().put("error", "There were problems deleting record " + id + " from the backend database").toString());
+        }
     }
 }
