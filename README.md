@@ -3,7 +3,7 @@ This project demonstrates the use of Vertx verticles to implement basic CRUD fun
   It relies on a MongoDB backend.
 
 ## Necessary components
-* a config file, src/main/java/resourcesconf/config.json, such as the following:
+* a config file, src/main/java/resources/conf/config.json, such as the following:
     * "mongodb.username", "mongodb.password" and "mongodb.authsource" may be ommitted if the database does not use authorization ( **play at your own risk** )
 ```json
 {
